@@ -3,7 +3,7 @@
  * Authentication Middleware
  * 
  * Include this file at the top of any protected page
- * Usage: require_once __DIR__ . '/auth/middleware.php';
+ * Usage: require_once __DIR__ . '/middleware.php';
  */
 
 require_once __DIR__ . '/Auth.php';
@@ -23,7 +23,8 @@ $auth = new Auth($config);
 if (!$auth->isAuthenticated()) {
     // Store the current URL for redirect after login
     $currentUrl = $_SERVER['REQUEST_URI'];
-    $loginUrl = '/Workout/auth/login.php?redirect=' . urlencode($currentUrl);
+    // Use relative path to login.php in the same directory
+    $loginUrl = dirname($_SERVER['REQUEST_URI']) . '/login.php?redirect=' . urlencode($currentUrl);
     
     header('Location: ' . $loginUrl);
     exit;

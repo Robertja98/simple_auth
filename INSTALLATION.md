@@ -276,6 +276,28 @@ Create `simple_auth/config.php`:
 cp simple_auth/config.example.php simple_auth/config.php
 ```
 
+### Data Directory Issues
+
+**CSV files not being created during registration:**
+
+Verify `config.php` has correct data path:
+```php
+'storage' => [
+    'data_dir' => __DIR__ . '/data',  // Should point to /data not /simple_auth/data
+],
+```
+
+**Then ensure directory has write permissions:**
+Windows:
+```powershell
+icacls "simple_auth\data" /grant "IUSR:(OI)(CI)F" /inheritance:e
+```
+
+Linux:
+```bash
+chmod 755 simple_auth/data/
+```
+
 ### "Permission denied" on data directory
 
 Windows users check:
@@ -294,6 +316,33 @@ Ensure the web server process (www-data, apache, iis, etc.) has write permission
 sudo chown -R www-data:www-data simple_auth/data/
 sudo chmod 755 simple_auth/data/
 ```
+
+### Invalid Credentials After Registration
+
+Common causes:
+
+1. **Rate limiting locked out your account** - You hit 5 failed attempts. Wait 15 minutes or delete `data/login_attempts.csv`
+
+2. **User data not saved** - Check `data/users.csv` exists and contains your user:
+   ```bash
+   cat simple_auth/data/users.csv
+   ```
+
+3. **CSV files empty or corrupted** - Delete all CSV files in `data/` directory and re-register:
+   ```bash
+   rm simple_auth/data/*.csv
+   ```
+
+### Middleware Redirect Issues
+
+The middleware redirects to `login.php` in the same directory automatically. This works with any installation path:
+- `/Workout/auth/` → redirects to `/Workout/auth/login.php`
+- `/CRM/simple_auth/` → redirects to `/CRM/simple_auth/login.php`
+- `/project/auth/` → redirects to `/project/auth/login.php`
+
+If redirects go to wrong place, ensure:
+1. `login.php` file exists in the same directory as `middleware.php`
+2. The directory structure is not nested (middleware should be at app level)
 
 ### HTTPS/Secure Cookie Issues
 
