@@ -1,9 +1,61 @@
+<?php
+/**
+ * User Registration Page
+ */
+require_once __DIR__ . '/Auth.php';
+
+// Load config
+$configFile = __DIR__ . '/config.php';
+if (!file_exists($configFile)) {
+    die('Configuration file not found. Please run setup.php first.');
+}
+$config = require $configFile;
+
+// Initialize auth for CSRF token
+$auth = new Auth($config);
+$errors = [];
+$success = false;
+
+// Handle POST request
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = trim($_POST['username'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $confirmPassword = $_POST['confirm_password'] ?? '';
+    $csrfToken = $_POST['csrf_token'] ?? '';
+    
+    // Verify CSRF token
+    if (!$auth->verifyCsrfToken($csrfToken)) {
+        $errors[] = 'Invalid security token. Please try again.';
+    } elseif ($password !== $confirmPassword) {
+        $errors[] = 'Passwords do not match';
+    } else {
+        $result = $auth->register($username, $email, $password);
+        
+        if ($result['success']) {
+            $success = true;
+            if ($result['requires_verification']) {
+                $successMessage = 'Registration successful! Please check your email to verify your account.';
+            } else {
+                $successMessage = 'Registration successful! You can now <a href="login.php">login</a>.';
+            }
+        } else {
+            $errors = $result['errors'] ?? ['Registration failed'];
+        }
+    }
+}
+
+// Generate CSRF token if needed
+if (!$success && !isset($_SESSION['csrf_token'])) {
+    $auth->generateCsrfToken();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - Workout Tracker</title>
+    <title><?= htmlspecialchars($config['app']['name']) ?> - Register</title>
     <link rel="stylesheet" href="../style.css">
     <style>
         .auth-container {
@@ -103,53 +155,14 @@
 </head>
 <body>
     <div class="auth-container">
-        <h1>Create Account</h1>
-        <p class="subtitle">Join Workout Tracker to start tracking your progress</p>
+        <h1>🔐 Create Account</h1>
+        <p class="subtitle">Join <?= htmlspecialchars($config['app']['name']) ?> today</p>
         
-        <?php
-        require_once __DIR__ . '/Auth.php';
-        
-        // Load config
-        $configFile = __DIR__ . '/config.php';
-        if (!file_exists($configFile)) {
-            die('Configuration file not found. Please create auth/config.php from auth/config.example.php');
-        }
-        $config = require $configFile;
-        
-        $auth = new Auth($config);
-        $errors = [];
-        $success = false;
-        
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $username = trim($_POST['username'] ?? '');
-            $email = trim($_POST['email'] ?? '');
-            $password = $_POST['password'] ?? '';
-            $confirmPassword = $_POST['confirm_password'] ?? '';
-            $csrfToken = $_POST['csrf_token'] ?? '';
-            
-            // Verify CSRF token
-            if (!$auth->verifyCsrfToken($csrfToken)) {
-                $errors[] = 'Invalid security token. Please try again.';
-            } elseif ($password !== $confirmPassword) {
-                $errors[] = 'Passwords do not match';
-            } else {
-                $result = $auth->register($username, $email, $password);
-                
-                if ($result['success']) {
-                    $success = true;
-                    if ($result['requires_verification']) {
-                        $successMessage = 'Registration successful! Please check your email to verify your account.';
-                    } else {
-                        $successMessage = 'Registration successful! You can now <a href="login.php">login</a>.';
-                    }
-                } else {
-                    $errors = $result['errors'] ?? ['Registration failed'];
-                }
-            }
-        }
-        
-        $csrfToken = $auth->generateCsrfToken();
-        ?>
+        <?php if ($success): ?>
+            <div class="success-msg">
+                <?= $successMessage ?>
+            </div>
+        <?php endif; ?>
         
         <?php if (!empty($errors)): ?>
             <div class="error-list">
@@ -161,13 +174,9 @@
             </div>
         <?php endif; ?>
         
-        <?php if ($success): ?>
-            <div class="success-msg">
-                <?= $successMessage ?>
-            </div>
-        <?php else: ?>
-            <form method="POST" action="">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+        <?php if (!$success): ?>
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
                 
                 <div class="form-group">
                     <label for="username">Username</label>

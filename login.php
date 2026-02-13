@@ -1,9 +1,55 @@
+<?php
+/**
+ * User Login Page
+ */
+require_once __DIR__ . '/Auth.php';
+
+// Load config
+$configFile = __DIR__ . '/config.php';
+if (!file_exists($configFile)) {
+    die('Configuration file not found. Please run setup.php first.');
+}
+$config = require $configFile;
+
+// Initialize auth
+$auth = new Auth($config);
+$error = '';
+$success = false;
+
+// Handle POST request
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $usernameOrEmail = $_POST['username_or_email'] ?? '';
+    $password = $_POST['password'] ?? '';
+    $rememberMe = isset($_POST['remember_me']);
+    $csrfToken = $_POST['csrf_token'] ?? '';
+    
+    // Verify CSRF token
+    if (!$auth->verifyCsrfToken($csrfToken)) {
+        $error = 'Invalid security token. Please try again.';
+    } else {
+        $result = $auth->login($usernameOrEmail, $password, $rememberMe);
+        
+        if ($result['success']) {
+            $redirect = $_GET['redirect'] ?? '../index.php';
+            header('Location: ' . $redirect);
+            exit;
+        } else {
+            $error = $result['error'] ?? 'Login failed';
+        }
+    }
+}
+
+// Generate CSRF token
+if (!isset($_SESSION['csrf_token'])) {
+    $auth->generateCsrfToken();
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Workout Tracker</title>
+    <title><?= htmlspecialchars($config['app']['name']) ?> - Login</title>
     <link rel="stylesheet" href="../style.css">
     <style>
         .auth-container {
@@ -109,29 +155,12 @@
 </head>
 <body>
     <div class="auth-container">
-        <h1>Welcome Back</h1>
-        <p class="subtitle">Login to continue tracking your workouts</p>
+        <h1>🔐 Welcome Back</h1>
+        <p class="subtitle">Login to <?= htmlspecialchars($config['app']['name']) ?></p>
         
-        <?php
-        require_once __DIR__ . '/Auth.php';
-        
-        // Load config
-        $configFile = __DIR__ . '/config.php';
-        if (!file_exists($configFile)) {
-            die('Configuration file not found. Please create auth/config.php from auth/config.example.php');
-        }
-        $config = require $configFile;
-        
-        $auth = new Auth($config);
-        $error = null;
-        
-        // Check if already logged in
-        if ($auth->isAuthenticated()) {
-            header('Location: ../index.php');
-            exit;
-        }
-        
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        <?php if (!empty($error)): ?>
+            <div class="error-msg"><?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
             $usernameOrEmail = trim($_POST['username_or_email'] ?? '');
             $password = $_POST['password'] ?? '';
             $rememberMe = isset($_POST['remember_me']);
