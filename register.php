@@ -1,11 +1,14 @@
 <?php
-// Move all PHP logic before any output
+/**
+ * User Registration Page
+ * All PHP logic is before any output
+ */
 require_once __DIR__ . '/Auth.php';
 
 // Load config
 $configFile = __DIR__ . '/config.php';
 if (!file_exists($configFile)) {
-    die('Configuration file not found. Please create auth/config.php from auth/config.example.php');
+    die('Configuration file not found. Please create auth/config.php from auth/config.example.php or run setup.php first.');
 }
 $config = require $configFile;
 
@@ -13,7 +16,7 @@ $auth = new Auth($config);
 $errors = [];
 $success = false;
 
-// Track CSRF retry attempts
+// Track CSRF retry attempts (for development)
 $csrfRetryKey = 'csrf_retry_' . md5($_SERVER['REMOTE_ADDR'] ?? 'unknown');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -25,7 +28,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Force CSRF dev bypass for local testing
     $devBypass = true;
-
     if (!$devBypass && !$auth->verifyCsrfToken($csrfToken)) {
         // Always allow retry for now (testing mode)
         $auth->generateCsrfToken();
@@ -35,9 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         // Reset retry counter on successful CSRF validation
         $_SESSION[$csrfRetryKey] = 0;
-
         $result = $auth->register($username, $email, $password);
-
         if ($result['success']) {
             $success = true;
             if ($result['requires_verification']) {
@@ -50,18 +50,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+    }
+}
 
+<<<<<<< HEAD
 $csrfToken = $auth->generateCsrfToken();
 
 // Development debug info (only on localhost)
 $showDebug = ($_SERVER['SERVER_NAME'] ?? '') === 'localhost' || ($_SERVER['REMOTE_ADDR'] ?? '') === '127.0.0.1';
+=======
+// Generate CSRF token if needed
+if (!$success && !isset($_SESSION['csrf_token'])) {
+    $auth->generateCsrfToken();
+}
+>>>>>>> c34eaea0973d4ee29e8620be5643dba9eaaa18b7
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<<<<<<< HEAD
     <title>Register - CRM System</title>
+=======
+    <title><?= htmlspecialchars($config['app']['name']) ?> - Register</title>
+>>>>>>> c34eaea0973d4ee29e8620be5643dba9eaaa18b7
     <link rel="stylesheet" href="../style.css">
     <style>
         .auth-container {
@@ -161,8 +174,19 @@ $showDebug = ($_SERVER['SERVER_NAME'] ?? '') === 'localhost' || ($_SERVER['REMOT
 </head>
 <body>
     <div class="auth-container">
+<<<<<<< HEAD
         <h1>Create Account</h1>
         <p class="subtitle">Register to access the CRM and manage your business</p>
+=======
+        <h1>🔐 Create Account</h1>
+        <p class="subtitle">Join <?= htmlspecialchars($config['app']['name']) ?> today</p>
+        
+        <?php if ($success): ?>
+            <div class="success-msg">
+                <?= $successMessage ?>
+            </div>
+        <?php endif; ?>
+>>>>>>> c34eaea0973d4ee29e8620be5643dba9eaaa18b7
         
         <?php if ($showDebug): ?>
             <div style="background: #f0f0f0; border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; font-size: 11px; font-family: monospace;">
@@ -190,13 +214,9 @@ $showDebug = ($_SERVER['SERVER_NAME'] ?? '') === 'localhost' || ($_SERVER['REMOT
             </div>
         <?php endif; ?>
         
-        <?php if ($success): ?>
-            <div class="success-msg">
-                <?= $successMessage ?>
-            </div>
-        <?php else: ?>
-            <form method="POST" action="">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
+        <?php if (!$success): ?>
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
                 
                 <div class="form-group">
                     <label for="username">Username</label>

@@ -1,13 +1,15 @@
 <?php
+/**
+ * User Login Page
+ */
 require_once __DIR__ . '/Auth.php';
 
 // Load config
 $configFile = __DIR__ . '/config.php';
 if (!file_exists($configFile)) {
-    die('Configuration file not found. Please create auth/config.php from auth/config.example.php');
+    die('Configuration file not found. Please create auth/config.php from auth/config.example.php or run setup.php first.');
 }
 $config = require $configFile;
-
 
 $auth = new Auth($config);
 $error = null; // Always initialize $error
@@ -56,7 +58,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Invalid security token. Please try again.';
     } else {
         $result = $auth->login($usernameOrEmail, $password, $rememberMe);
-
         if ($result['success']) {
             // Redirect to the URL in the 'redirect' parameter if present, else to /index.php
             $redirect = $_GET['redirect'] ?? $_POST['redirect'] ?? '';
@@ -67,19 +68,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             exit;
         } else {
+            $error = $result['error'] ?? 'Login failed. Please try again.';
+        }
+    }
+}
+$auth = new Auth($config);
+$error = '';
+$success = false;
+
+// Handle POST request
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $usernameOrEmail = $_POST['username_or_email'] ?? '';
+    $password = $_POST['password'] ?? '';
+    $rememberMe = isset($_POST['remember_me']);
+    $csrfToken = $_POST['csrf_token'] ?? '';
+    
+    // Verify CSRF token
+    if (!$auth->verifyCsrfToken($csrfToken)) {
+        $error = 'Invalid security token. Please try again.';
+    } else {
+        $result = $auth->login($usernameOrEmail, $password, $rememberMe);
+        
+        if ($result['success']) {
+            $redirect = $_GET['redirect'] ?? '../index.php';
+            header('Location: ' . $redirect);
+>>>>>>> c34eaea0973d4ee29e8620be5643dba9eaaa18b7
+            exit;
+        } else {
             $error = $result['error'] ?? 'Login failed';
         }
     }
 }
 
+<<<<<<< HEAD
 $csrfToken = $auth->generateCsrfToken();
+=======
+// Generate CSRF token
+if (!isset($_SESSION['csrf_token'])) {
+    $auth->generateCsrfToken();
+}
+>>>>>>> c34eaea0973d4ee29e8620be5643dba9eaaa18b7
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<<<<<<< HEAD
     <title>Login - CRM</title>
+=======
+    <title><?= htmlspecialchars($config['app']['name']) ?> - Login</title>
+>>>>>>> c34eaea0973d4ee29e8620be5643dba9eaaa18b7
     <link rel="stylesheet" href="../style.css">
     <style>
         .auth-container {
@@ -185,10 +224,45 @@ $csrfToken = $auth->generateCsrfToken();
 </head>
 <body>
     <div class="auth-container">
+<<<<<<< HEAD
         <h1>CRM Login</h1>
         <p class="subtitle">Login to access your customer data and manage business relationships</p>
 
         <?php if (!empty($error)): ?>
+=======
+        <h1>🔐 Welcome Back</h1>
+        <p class="subtitle">Login to <?= htmlspecialchars($config['app']['name']) ?></p>
+        
+        <?php if (!empty($error)): ?>
+            <div class="error-msg"><?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
+            $usernameOrEmail = trim($_POST['username_or_email'] ?? '');
+            $password = $_POST['password'] ?? '';
+            $rememberMe = isset($_POST['remember_me']);
+            $csrfToken = $_POST['csrf_token'] ?? '';
+            
+            // Verify CSRF token
+            if (!$auth->verifyCsrfToken($csrfToken)) {
+                $error = 'Invalid security token. Please try again.';
+            } else {
+                $result = $auth->login($usernameOrEmail, $password, $rememberMe);
+                
+                if ($result['success']) {
+                    // Redirect to main app
+                    $redirectUrl = $_GET['redirect'] ?? '../index.php';
+                    header('Location: ' . $redirectUrl);
+                    exit;
+                } else {
+                    $error = $result['error'] ?? 'Login failed';
+                }
+            }
+        }
+        
+        $csrfToken = $auth->generateCsrfToken();
+        ?>
+        
+        <?php if ($error): ?>
+>>>>>>> c34eaea0973d4ee29e8620be5643dba9eaaa18b7
             <div class="error-msg">
                 <?= htmlspecialchars($error) ?>
             </div>
