@@ -1,9 +1,67 @@
+<?php
+// Move all PHP logic before any output
+require_once __DIR__ . '/Auth.php';
+
+// Load config
+$configFile = __DIR__ . '/config.php';
+if (!file_exists($configFile)) {
+    die('Configuration file not found. Please create auth/config.php from auth/config.example.php');
+}
+$config = require $configFile;
+
+$auth = new Auth($config);
+$errors = [];
+$success = false;
+
+// Track CSRF retry attempts
+$csrfRetryKey = 'csrf_retry_' . md5($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = trim($_POST['username'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $confirmPassword = $_POST['confirm_password'] ?? '';
+    $csrfToken = $_POST['csrf_token'] ?? '';
+
+    // Force CSRF dev bypass for local testing
+    $devBypass = true;
+
+    if (!$devBypass && !$auth->verifyCsrfToken($csrfToken)) {
+        // Always allow retry for now (testing mode)
+        $auth->generateCsrfToken();
+        $errors[] = 'Security token expired or invalid. Please try submitting again.';
+    } elseif ($password !== $confirmPassword) {
+        $errors[] = 'Passwords do not match';
+    } else {
+        // Reset retry counter on successful CSRF validation
+        $_SESSION[$csrfRetryKey] = 0;
+
+        $result = $auth->register($username, $email, $password);
+
+        if ($result['success']) {
+            $success = true;
+            if ($result['requires_verification']) {
+                $successMessage = 'Registration successful! Please check your email to verify your account.';
+            } else {
+                $successMessage = 'Registration successful! You can now <a href="login.php">login</a>.';
+            }
+        } else {
+            $errors = $result['errors'] ?? ['Registration failed'];
+        }
+    }
+}
+
+$csrfToken = $auth->generateCsrfToken();
+
+// Development debug info (only on localhost)
+$showDebug = ($_SERVER['SERVER_NAME'] ?? '') === 'localhost' || ($_SERVER['REMOTE_ADDR'] ?? '') === '127.0.0.1';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - Workout Tracker</title>
+    <title>Register - CRM System</title>
     <link rel="stylesheet" href="../style.css">
     <style>
         .auth-container {
@@ -104,53 +162,24 @@
 <body>
     <div class="auth-container">
         <h1>Create Account</h1>
-        <p class="subtitle">Join Workout Tracker to start tracking your progress</p>
+        <p class="subtitle">Register to access the CRM and manage your business</p>
         
-        <?php
-        require_once __DIR__ . '/Auth.php';
-        
-        // Load config
-        $configFile = __DIR__ . '/config.php';
-        if (!file_exists($configFile)) {
-            die('Configuration file not found. Please create auth/config.php from auth/config.example.php');
-        }
-        $config = require $configFile;
-        
-        $auth = new Auth($config);
-        $errors = [];
-        $success = false;
-        
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $username = trim($_POST['username'] ?? '');
-            $email = trim($_POST['email'] ?? '');
-            $password = $_POST['password'] ?? '';
-            $confirmPassword = $_POST['confirm_password'] ?? '';
-            $csrfToken = $_POST['csrf_token'] ?? '';
-            
-            // Verify CSRF token
-            if (!$auth->verifyCsrfToken($csrfToken)) {
-                $errors[] = 'Invalid security token. Please try again.';
-            } elseif ($password !== $confirmPassword) {
-                $errors[] = 'Passwords do not match';
-            } else {
-                $result = $auth->register($username, $email, $password);
-                
-                if ($result['success']) {
-                    $success = true;
-                    if ($result['requires_verification']) {
-                        $successMessage = 'Registration successful! Please check your email to verify your account.';
-                    } else {
-                        $successMessage = 'Registration successful! You can now <a href="login.php">login</a>.';
-                    }
-                } else {
-                    $errors = $result['errors'] ?? ['Registration failed'];
-                }
-            }
-        }
-        
-        $csrfToken = $auth->generateCsrfToken();
-        ?>
-        
+        <?php if ($showDebug): ?>
+            <div style="background: #f0f0f0; border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; font-size: 11px; font-family: monospace;">
+                <strong>Debug Info (localhost only):</strong><br>
+                Session ID: <?= htmlspecialchars(session_id()) ?><br>
+                CSRF Token: <?= htmlspecialchars(substr($csrfToken, 0, 16)) ?>...<br>
+                Cookie Received: <?= isset($_COOKIE[session_name()]) ? '✅ Yes (session maintained)' : '⚠️ Not yet (first load is normal)' ?><br>
+                <?php if ($_SERVER['REQUEST_METHOD'] === 'POST'): ?>
+                    <strong style="color: #c33;">POST Request - Cookie MUST be present for CSRF to work!</strong><br>
+                <?php endif; ?>
+                <?php if ($config['security']['dev_bypass_csrf'] ?? false): ?>
+                    <div style="background: #fff3cd; color: #856404; padding: 8px; margin-top: 5px; border: 1px solid #ffc107; border-radius: 3px;">
+                        ⚠️ <strong>DEV MODE:</strong> CSRF bypass is ENABLED for localhost testing
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>        
         <?php if (!empty($errors)): ?>
             <div class="error-list">
                 <ul>

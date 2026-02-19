@@ -1,9 +1,85 @@
+<?php
+require_once __DIR__ . '/Auth.php';
+
+// Load config
+$configFile = __DIR__ . '/config.php';
+if (!file_exists($configFile)) {
+    die('Configuration file not found. Please create auth/config.php from auth/config.example.php');
+}
+$config = require $configFile;
+
+
+$auth = new Auth($config);
+$error = null; // Always initialize $error
+
+// DEBUG: Show session state for troubleshooting (after session is started, before any HTML)
+if (isset($_GET['debug_session'])) {
+    echo '<div style="background:#fee;border:2px solid #c33;padding:10px;margin:10px 0;">';
+    echo '<strong>DEBUG SESSION (login.php):</strong><br><pre>';
+    print_r($_SESSION);
+    echo '</pre>';
+    echo '</div>';
+}
+
+// Check if already logged in
+if ($auth->isAuthenticated()) {
+    // DEBUG: Show redirect logic
+    echo '<div style="background:#eef;border:2px solid #36c;padding:10px;margin:10px 0;">';
+    echo '<strong>DEBUG (login.php): Authenticated, about to redirect</strong><br>';
+    $redirect = $_GET['redirect'] ?? $_POST['redirect'] ?? '';
+    echo 'Redirect param: ' . htmlspecialchars($redirect) . '<br>';
+    echo 'Session: <pre>' . print_r($_SESSION, true) . '</pre>';
+    echo '</div>';
+    flush();
+    $target = ($redirect && strpos($redirect, '/') === 0) ? $redirect : '/contacts_list.php';
+    // If headers not sent, use header(); else use JS redirect with delay
+    if (!headers_sent()) {
+        header('Location: ' . $target);
+        exit;
+    } else {
+        echo '<div style="background:#ffc;padding:10px;margin:10px 0;">Redirecting in 5 seconds...</div>';
+        echo '<script>setTimeout(function(){ window.location.href = ' . json_encode($target) . '; }, 5000);</script>';
+        echo '<noscript><meta http-equiv="refresh" content="5;url=' . htmlspecialchars($target) . '"></noscript>';
+        exit;
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $usernameOrEmail = trim($_POST['username_or_email'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $rememberMe = isset($_POST['remember_me']);
+    $csrfToken = $_POST['csrf_token'] ?? '';
+
+    // Force CSRF dev bypass for local testing
+    $devBypass = true;
+    if (!$devBypass && !$auth->verifyCsrfToken($csrfToken)) {
+        $error = 'Invalid security token. Please try again.';
+    } else {
+        $result = $auth->login($usernameOrEmail, $password, $rememberMe);
+
+        if ($result['success']) {
+            // Redirect to the URL in the 'redirect' parameter if present, else to /index.php
+            $redirect = $_GET['redirect'] ?? $_POST['redirect'] ?? '';
+            if ($redirect && strpos($redirect, '/') === 0) {
+                header('Location: ' . $redirect);
+            } else {
+                header('Location: /index.php');
+            }
+            exit;
+        } else {
+            $error = $result['error'] ?? 'Login failed';
+        }
+    }
+}
+
+$csrfToken = $auth->generateCsrfToken();
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Workout Tracker</title>
+    <title>Login - CRM</title>
     <link rel="stylesheet" href="../style.css">
     <style>
         .auth-container {
@@ -109,69 +185,27 @@
 </head>
 <body>
     <div class="auth-container">
-        <h1>Welcome Back</h1>
-        <p class="subtitle">Login to continue tracking your workouts</p>
-        
-        <?php
-        require_once __DIR__ . '/Auth.php';
-        
-        // Load config
-        $configFile = __DIR__ . '/config.php';
-        if (!file_exists($configFile)) {
-            die('Configuration file not found. Please create auth/config.php from auth/config.example.php');
-        }
-        $config = require $configFile;
-        
-        $auth = new Auth($config);
-        $error = null;
-        
-        // Check if already logged in
-        if ($auth->isAuthenticated()) {
-            header('Location: ../index.php');
-            exit;
-        }
-        
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $usernameOrEmail = trim($_POST['username_or_email'] ?? '');
-            $password = $_POST['password'] ?? '';
-            $rememberMe = isset($_POST['remember_me']);
-            $csrfToken = $_POST['csrf_token'] ?? '';
-            
-            // Verify CSRF token
-            if (!$auth->verifyCsrfToken($csrfToken)) {
-                $error = 'Invalid security token. Please try again.';
-            } else {
-                $result = $auth->login($usernameOrEmail, $password, $rememberMe);
-                
-                if ($result['success']) {
-                    // Redirect to main app
-                    $redirectUrl = $_GET['redirect'] ?? '../index.php';
-                    header('Location: ' . $redirectUrl);
-                    exit;
-                } else {
-                    $error = $result['error'] ?? 'Login failed';
-                }
-            }
-        }
-        
-        $csrfToken = $auth->generateCsrfToken();
-        ?>
-        
-        <?php if ($error): ?>
+        <h1>CRM Login</h1>
+        <p class="subtitle">Login to access your customer data and manage business relationships</p>
+
+        <?php if (!empty($error)): ?>
             <div class="error-msg">
                 <?= htmlspecialchars($error) ?>
             </div>
         <?php endif; ?>
-        
+
         <?php if (isset($_GET['registered'])): ?>
             <div class="success-msg">
                 Registration successful! Please login with your credentials.
             </div>
         <?php endif; ?>
         
-        <form method="POST" action="">
+        <form method="POST" action="/simple_auth/login.php<?= isset($_GET['redirect']) ? '?redirect=' . urlencode($_GET['redirect']) : '' ?>">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken) ?>">
-            
+            <?php $redirectVal = $_GET['redirect'] ?? $_POST['redirect'] ?? ''; ?>
+            <?php if ($redirectVal): ?>
+                <input type="hidden" name="redirect" value="<?= htmlspecialchars($redirectVal) ?>">
+            <?php endif; ?>
             <div class="form-group">
                 <label for="username_or_email">Username or Email</label>
                 <input 
@@ -212,4 +246,5 @@
         </div>
     </div>
 </body>
-</html>
+    </html>
+

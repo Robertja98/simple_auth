@@ -7,6 +7,28 @@
  */
 
 class CsvDataStore {
+    /**
+     * Truncate a table (remove all records, keep header)
+     */
+    public function truncate($table) {
+        $filename = $this->dataDir . '/' . $table . '.csv';
+        if (!file_exists($filename)) {
+            return false;
+        }
+        $fp = fopen($filename, 'r+');
+        if ($fp === false) {
+            return false;
+        }
+        $headers = fgetcsv($fp, 0, ',', '"', '\\');
+        fclose($fp);
+        $fp = fopen($filename, 'w');
+        if ($fp === false) {
+            return false;
+        }
+        fputcsv($fp, $headers, ',', '"', '\\');
+        fclose($fp);
+        return true;
+    }
     private $dataDir;
     private $config;
     
@@ -28,7 +50,7 @@ class CsvDataStore {
      */
     private function initializeFiles() {
         $files = [
-            'users.csv' => ['id', 'username', 'email', 'password_hash', 'created_at', 'updated_at', 'last_login', 'is_active', 'is_verified', 'verification_token', 'reset_token', 'reset_token_expires', 'failed_login_attempts', 'locked_until'],
+            'users.csv' => ['id', 'username', 'email', 'password_hash', 'role', 'created_at', 'updated_at', 'last_login', 'is_active', 'is_verified', 'verification_token', 'reset_token', 'reset_token_expires', 'failed_login_attempts', 'locked_until'],
             'sessions.csv' => ['id', 'user_id', 'session_token', 'ip_address', 'user_agent', 'created_at', 'expires_at', 'last_activity'],
             'login_attempts.csv' => ['id', 'username_or_email', 'ip_address', 'success', 'attempted_at'],
             'activity_log.csv' => ['id', 'user_id', 'action_type', 'action_details', 'ip_address', 'user_agent', 'created_at'],
@@ -38,7 +60,7 @@ class CsvDataStore {
             $filepath = $this->dataDir . '/' . $filename;
             if (!file_exists($filepath)) {
                 $fp = fopen($filepath, 'w');
-                fputcsv($fp, $headers);
+                fputcsv($fp, $headers, ',', '"', '\\');
                 fclose($fp);
             }
         }
@@ -56,14 +78,14 @@ class CsvDataStore {
         }
         
         $fp = fopen($filepath, 'r');
-        $headers = fgetcsv($fp);
+        $headers = fgetcsv($fp, 0, ',', '"', '\\');
         
         if (!$headers) {
             fclose($fp);
             return $records;
         }
         
-        while (($row = fgetcsv($fp)) !== false) {
+        while (($row = fgetcsv($fp, 0, ',', '"', '\\')) !== false) {
             if (count($row) === count($headers)) {
                 $record = array_combine($headers, $row);
                 $records[] = $record;
@@ -82,14 +104,14 @@ class CsvDataStore {
         $tempFile = $filepath . '.tmp';
         
         $fp = fopen($tempFile, 'w');
-        fputcsv($fp, $headers);
+        fputcsv($fp, $headers, ',', '"', '\\');
         
         foreach ($records as $record) {
             $row = [];
             foreach ($headers as $header) {
                 $row[] = $record[$header] ?? '';
             }
-            fputcsv($fp, $row);
+            fputcsv($fp, $row, ',', '"', '\\');
         }
         
         fclose($fp);
@@ -134,11 +156,10 @@ class CsvDataStore {
      */
     public function fetchOne($table, $where) {
         $records = $this->readCsv($table . '.csv');
-        
         foreach ($records as $record) {
             $match = true;
             foreach ($where as $field => $value) {
-                if (!isset($record[$field]) || $record[$field] !== $value) {
+                if (!isset($record[$field]) || strval($record[$field]) !== strval($value)) {
                     $match = false;
                     break;
                 }
@@ -147,7 +168,6 @@ class CsvDataStore {
                 return $record;
             }
         }
-        
         return null;
     }
     

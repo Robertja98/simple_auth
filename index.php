@@ -6,7 +6,7 @@ require_once __DIR__ . '/middleware.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Workout Tracker - Login</title>
+    <title>CRM - Login</title>
     <link rel="stylesheet" href="../style.css">
     <style>
         .auth-container {
@@ -111,13 +111,13 @@ require_once __DIR__ . '/middleware.php';
                 <p class="subtitle">
                     You're logged in as <strong><?= htmlspecialchars(auth_current_user()['username']) ?></strong>
                 </p>
-                <a href="../index.php">Go to Workout Tracker →</a>
+                <a href="../index.php">Go to CRM →</a>
             </div>
         <?php else: ?>
             <!-- Not logged in -->
-            <h1>Workout Tracker</h1>
+            <h1>CRM System</h1>
             <p class="subtitle">
-                Track your workouts, monitor progress, and achieve your fitness goals.
+                Manage customer relationships, track sales, and grow your business.
             </p>
             
             <div class="auth-buttons">
