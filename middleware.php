@@ -52,8 +52,9 @@ if (!$auth->isAuthenticated()) {
     } else {
         // Store the current URL for redirect after login
         $currentUrl = $_SERVER['REQUEST_URI'];
-        // Use relative path to login.php in the same directory
-        $loginUrl = dirname($_SERVER['REQUEST_URI']) . '/login.php?redirect=' . urlencode($currentUrl);
+        // Use absolute base URL for login.php
+        $baseUrl = 'https://crm.eclipsewatertechnologies.com'; // Set your domain here
+        $loginUrl = $baseUrl . '/login.php?redirect=' . urlencode($currentUrl);
         header('Location: ' . $loginUrl);
         exit;
     }

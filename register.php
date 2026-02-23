@@ -50,31 +50,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-    }
-}
-
-<<<<<<< HEAD
-$csrfToken = $auth->generateCsrfToken();
-
-// Development debug info (only on localhost)
-$showDebug = ($_SERVER['SERVER_NAME'] ?? '') === 'localhost' || ($_SERVER['REMOTE_ADDR'] ?? '') === '127.0.0.1';
-=======
 // Generate CSRF token if needed
 if (!$success && !isset($_SESSION['csrf_token'])) {
     $auth->generateCsrfToken();
 }
->>>>>>> c34eaea0973d4ee29e8620be5643dba9eaaa18b7
+// Development debug info (only on localhost)
+$showDebug = ($_SERVER['SERVER_NAME'] ?? '') === 'localhost' || ($_SERVER['REMOTE_ADDR'] ?? '') === '127.0.0.1';
+// ...existing code...
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<<<<<<< HEAD
     <title>Register - CRM System</title>
-=======
-    <title><?= htmlspecialchars($config['app']['name']) ?> - Register</title>
->>>>>>> c34eaea0973d4ee29e8620be5643dba9eaaa18b7
     <link rel="stylesheet" href="../style.css">
     <style>
         .auth-container {

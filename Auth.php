@@ -6,7 +6,7 @@
  * Follows 2026 security best practices
  */
 
-require_once __DIR__ . '/CsvDataStore.php';
+// require_once __DIR__ . '/CsvDataStore.php'; // CSV support removed
 require_once __DIR__ . '/SessionDataStore.php';
 
 class Auth {
@@ -28,13 +28,13 @@ class Auth {
         }
         return true;
     }
-    private $store;
+    // private $store; // CSV support removed
     private $sessionStore;
     private $config;
     
     public function __construct($config) {
         $this->config = $config;
-        $this->store = new CsvDataStore($config);
+        // $this->store = new CsvDataStore($config); // CSV support removed
         $this->sessionStore = new SessionDataStore();
         $this->initSession();
     }
@@ -104,12 +104,15 @@ class Auth {
             ? bin2hex(random_bytes(32)) 
             : null;
             // Set default role (first user = admin, else user)
-            $existingUsers = $this->store->fetchAll('users');
-            $role = empty($existingUsers) ? 'admin' : 'user';
+            // $existingUsers = $this->store->fetchAll('users');
+            // $role = empty($existingUsers) ? 'admin' : 'user';
+            $role = 'user'; // Default to user; implement SQL logic as needed
         
         try {
             // Insert user
-            $userId = $this->store->insert('users', [
+            // $userId = $this->store->insert('users', [ // CSV support removed
+            // Implement SQL user insert here
+            $userId = null; // Placeholder
                 'username' => $username,
                 'email' => $email,
                 'password_hash' => $passwordHash,
@@ -125,11 +128,12 @@ class Auth {
             ]);
             
             // Log registration
-            $this->logActivity($userId, 'user_registered', json_encode([
-                'username' => $username,
-                'email' => $email,
-                    'role' => $role,
-            ]));
+            // $this->logActivity($userId, 'user_registered', json_encode([
+            //     'username' => $username,
+            //     'email' => $email,
+            //         'role' => $role,
+            // ]));
+            // Implement SQL activity log here
             
             return [
                 'success' => true,
@@ -159,10 +163,12 @@ class Auth {
         // }
         
         // Find user
-        $user = $this->findUser($usernameOrEmail);
+        // $user = $this->findUser($usernameOrEmail); // CSV support removed
+        $user = null; // Implement SQL user lookup here
         
         // Log attempt
-        $this->logLoginAttempt($usernameOrEmail, $ip, false);
+        // $this->logLoginAttempt($usernameOrEmail, $ip, false); // CSV support removed
+        // Implement SQL login attempt log here
         
         if (!$user) {
             return ['success' => false, 'error' => 'Invalid credentials'];
@@ -190,9 +196,10 @@ class Auth {
         }
         
         // Successful login
-        $this->logLoginAttempt($usernameOrEmail, $ip, true);
-        $this->resetFailedAttempts($user['id']);
-        $this->updateLastLogin($user['id']);
+        // $this->logLoginAttempt($usernameOrEmail, $ip, true);
+        // $this->resetFailedAttempts($user['id']);
+        // $this->updateLastLogin($user['id']);
+        // Implement SQL login success logic here
         
         // Create session
         $sessionToken = $this->createSession($user['id'], $rememberMe);
@@ -206,7 +213,8 @@ class Auth {
         $_SESSION['ip_address'] = $ip;
         
         // Log activity
-        $this->logActivity($user['id'], 'user_login', 'Successful login');
+        // $this->logActivity($user['id'], 'user_login', 'Successful login');
+        // Implement SQL activity log here
         
         return [
             'success' => true,
@@ -263,7 +271,8 @@ class Auth {
             return null;
         }
         
-        $user = $this->store->fetchOne('users', ['id' => (string)$_SESSION['user_id']]);
+        // $user = $this->store->fetchOne('users', ['id' => (string)$_SESSION['user_id']]); // CSV support removed
+        $user = null; // Implement SQL user fetch here
         
         if ($user) {
             // Return only safe fields
@@ -299,7 +308,8 @@ class Auth {
         }
         
         $newHash = $this->hashPassword($newPassword);
-        $this->store->update('users', ['password_hash' => $newHash], ['id' => (string)$userId]);
+        // $this->store->update('users', ['password_hash' => $newHash], ['id' => (string)$userId]); // CSV support removed
+        // Implement SQL password update here
         
         $this->logActivity($userId, 'password_changed', 'User changed password');
         
@@ -403,22 +413,12 @@ class Auth {
     }
     
     private function userExists($username, $email) {
-        $users = $this->store->fetchAll('users');
-        foreach ($users as $user) {
-            if ($user['username'] === $username || $user['email'] === $email) {
-                return true;
-            }
-        }
+        // CSV userExists removed; implement SQL userExists here
         return false;
     }
     
     private function findUser($usernameOrEmail) {
-        $users = $this->store->fetchAll('users');
-        foreach ($users as $user) {
-            if ($user['username'] === $usernameOrEmail || $user['email'] === $usernameOrEmail) {
-                return $user;
-            }
-        }
+        // CSV findUser removed; implement SQL findUser here
         return null;
     }
     
@@ -427,51 +427,25 @@ class Auth {
         $maxAttempts = $this->config['security']['max_login_attempts'];
         $cutoff = date('Y-m-d H:i:s', time() - $window);
         
-        $attempts = $this->store->filter('login_attempts', function($attempt) use ($usernameOrEmail, $ip, $cutoff) {
-            return ($attempt['username_or_email'] === $usernameOrEmail || $attempt['ip_address'] === $ip)
-                && $attempt['success'] === '0'
-                && $attempt['attempted_at'] > $cutoff;
-        });
-        
-        return count($attempts) >= $maxAttempts;
+        // CSV isRateLimited removed; implement SQL isRateLimited here
+        return false;
     }
     
     private function isAccountLocked($user) {
-        if (empty($user['locked_until'])) {
-            return false;
-        }
-        
-        $lockedUntil = strtotime($user['locked_until']);
-        if ($lockedUntil > time()) {
-            return true;
-        }
-        
-        // Unlock account if lock period has passed
-        $this->store->update('users', ['locked_until' => ''], ['id' => $user['id']]);
+        // CSV isAccountLocked removed; implement SQL isAccountLocked here
         return false;
     }
     
     private function incrementFailedAttempts($userId) {
-        $user = $this->store->fetchOne('users', ['id' => (string)$userId]);
-        $attempts = (int)($user['failed_login_attempts'] ?? 0) + 1;
-        
-        $updateData = ['failed_login_attempts' => (string)$attempts];
-        
-        // Lock account if max attempts reached
-        if ($attempts >= $this->config['security']['max_login_attempts']) {
-            $lockDuration = $this->config['security']['lockout_duration'];
-            $updateData['locked_until'] = date('Y-m-d H:i:s', time() + $lockDuration);
-        }
-        
-        $this->store->update('users', $updateData, ['id' => (string)$userId]);
+        // CSV incrementFailedAttempts removed; implement SQL incrementFailedAttempts here
     }
     
     private function resetFailedAttempts($userId) {
-        $this->store->update('users', ['failed_login_attempts' => '0'], ['id' => (string)$userId]);
+        // CSV resetFailedAttempts removed; implement SQL resetFailedAttempts here
     }
     
     private function updateLastLogin($userId) {
-        $this->store->update('users', ['last_login' => date('Y-m-d H:i:s')], ['id' => (string)$userId]);
+        // CSV updateLastLogin removed; implement SQL updateLastLogin here
     }
     
     private function createSession($userId, $rememberMe = false) {
@@ -485,12 +459,7 @@ class Auth {
     }
     
     private function logLoginAttempt($usernameOrEmail, $ip, $success) {
-        $this->store->insert('login_attempts', [
-            'username_or_email' => $usernameOrEmail,
-            'ip_address' => $ip,
-            'success' => $success ? '1' : '0',
-            'attempted_at' => date('Y-m-d H:i:s'),
-        ]);
+        // CSV logLoginAttempt removed; implement SQL logLoginAttempt here
     }
     
     private function logActivity($userId, $actionType, $actionDetails) {
@@ -498,13 +467,7 @@ class Auth {
             return;
         }
         
-        $this->store->insert('activity_log', [
-            'user_id' => (string)$userId,
-            'action_type' => $actionType,
-            'action_details' => $actionDetails,
-            'ip_address' => $this->getIpAddress(),
-            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
-        ]);
+        // CSV logActivity removed; implement SQL logActivity here
     }
     
     private function getIpAddress() {
@@ -530,23 +493,7 @@ class Auth {
      * Get user statistics
      */
     public function getUserStats($userId) {
-        $user = $this->store->fetchOne('users', ['id' => (string)$userId]);
-        
-        if (!$user) {
-            return null;
-        }
-        
-        $loginAttempts = $this->store->filter('login_attempts', function($attempt) use ($user) {
-            return $attempt['username_or_email'] === $user['username'] && $attempt['success'] === '1';
-        });
-        
-        $activities = $this->store->fetchAll('activity_log', ['user_id' => (string)$userId]);
-        
-        return [
-            'member_since' => $user['created_at'] ?? '',
-            'last_login' => $user['last_login'] ?? '',
-            'total_logins' => count($loginAttempts),
-            'total_activities' => count($activities),
-        ];
+        // CSV getUserStats removed; implement SQL getUserStats here
+        return null;
     }
 }
