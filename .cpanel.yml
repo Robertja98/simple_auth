@@ -1,0 +1,8 @@
+deployment:
+  branch: main
+hooks:
+  pre_deploy:
+    - echo "Starting deployment for simple_auth..."
+  post_deploy:
+    - /bin/cp -r * /home/hp6xh47j1ds2/public_html/crm/simple_auth/
+    - echo "simple_auth deployment complete!"
