@@ -1,8 +1,5 @@
+---
 deployment:
-  branch: main
-hooks:
-  pre_deploy:
-    - echo "Starting deployment for simple_auth..."
-  post_deploy:
-    - /bin/bash -lc 'TARGET="/home/hp6xh47j1ds2/public_html/crm/simple_auth"; mkdir -p "$TARGET"; find "$TARGET/.git" -depth -type f -delete 2>/dev/null; find "$TARGET/.git" -depth -type d -delete 2>/dev/null; rm -rf "$TARGET/.git"; if command -v rsync >/dev/null 2>&1; then rsync -a --delete --exclude=".git/" --exclude=".cpanel.yml" ./ "$TARGET/"; else find . -mindepth 1 -maxdepth 1 ! -name ".git" ! -name ".cpanel.yml" -exec /bin/cp -a {} "$TARGET/" \;; fi'
-    - echo "simple_auth deployment complete!"
+  tasks:
+    - rm -rf /home/hp6xh47j1ds2/public_html/crm/simple_auth/.git
+    - rsync -a --delete --exclude=.git --exclude=.cpanel.yml $REPOSITORY_WEBROOT/ /home/hp6xh47j1ds2/public_html/crm/simple_auth/
