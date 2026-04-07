@@ -1,5 +1,7 @@
 ---
 deployment:
   tasks:
-    - rm -rf /home/hp6xh47j1ds2/public_html/crm/simple_auth/.git
-    - rsync -a --delete --exclude=.git --exclude=.cpanel.yml $REPOSITORY_WEBROOT/ /home/hp6xh47j1ds2/public_html/crm/simple_auth/
+    - export DEPLOYPATH=/home/hp6xh47j1ds2/public_html/crm/simple_auth
+    - /bin/cp -Rf . $DEPLOYPATH
+    - /bin/rm -rf $DEPLOYPATH/.git
+    - /bin/rm -f $DEPLOYPATH/.cpanel.yml
