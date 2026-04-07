@@ -8,6 +8,11 @@ class SessionDataStore {
         $this->conn = get_mysql_connection();
     }
     public function insert($userId, $sessionToken, $ip, $userAgent, $expiresAt) {
+        // Delete any existing session with this token to avoid duplicate key error
+        $del = $this->conn->prepare("DELETE FROM sessions WHERE session_token = ?");
+        $del->bind_param('s', $sessionToken);
+        $del->execute();
+        $del->close();
         $stmt = $this->conn->prepare("INSERT INTO sessions (user_id, session_token, ip_address, user_agent, expires_at, last_activity) VALUES (?, ?, ?, ?, ?, NOW())");
         $stmt->bind_param('issss', $userId, $sessionToken, $ip, $userAgent, $expiresAt);
         $stmt->execute();

@@ -73,9 +73,14 @@ class Auth {
             if (session_status() === PHP_SESSION_ACTIVE) {
                 if (!isset($_SESSION['created'])) {
                     $_SESSION['created'] = time();
+                    // Always sync session_token to session_id on session creation
+                    $_SESSION['session_token'] = session_id();
                 } else if (time() - $_SESSION['created'] > 1800) {
                     session_regenerate_id(true);
                     $_SESSION['created'] = time();
+                    // Always sync session_token to session_id after regeneration
+                    $_SESSION['session_token'] = session_id();
+                    // Optionally update DB session_token here if needed
                 }
             }
         }
@@ -95,53 +100,51 @@ class Auth {
         if ($this->userExists($username, $email)) {
             return ['success' => false, 'errors' => ['Username or email already exists']];
         }
-        
+
         // Hash password
         $passwordHash = $this->hashPassword($password);
-        
+
         // Generate verification token
-        $verificationToken = $this->config['app']['require_email_verification'] 
-            ? bin2hex(random_bytes(32)) 
+        $verificationToken = $this->config['app']['require_email_verification']
+            ? bin2hex(random_bytes(32))
             : null;
-            // Set default role (first user = admin, else user)
-            // $existingUsers = $this->store->fetchAll('users');
-            // $role = empty($existingUsers) ? 'admin' : 'user';
-            $role = 'user'; // Default to user; implement SQL logic as needed
-        
+        $role = 'user';
+
         try {
-            // Insert user
-            // $userId = $this->store->insert('users', [ // CSV support removed
-            // Implement SQL user insert here
-            $userId = null; // Placeholder
-                'username' => $username,
-                'email' => $email,
-                'password_hash' => $passwordHash,
-                    'role' => $role,
-                'is_verified' => $verificationToken ? '0' : '1',
-                'is_active' => '1',
-                'verification_token' => $verificationToken ?? '',
-                'reset_token' => '',
-                'reset_token_expires' => '',
-                'failed_login_attempts' => '0',
-                'locked_until' => '',
-                'last_login' => '',
-            ]);
-            
-            // Log registration
-            // $this->logActivity($userId, 'user_registered', json_encode([
-            //     'username' => $username,
-            //     'email' => $email,
-            //         'role' => $role,
-            // ]));
-            // Implement SQL activity log here
-            
+            $conn = get_mysql_connection();
+            $stmt = $conn->prepare("INSERT INTO users (username, email, password_hash, role, is_verified, is_active, verification_token, reset_token, reset_token_expires, failed_login_attempts, locked_until, last_login) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $is_verified = $verificationToken ? 0 : 1;
+            $is_active = 1;
+            $reset_token = '';
+            $reset_token_expires = null;
+            $failed_login_attempts = 0;
+            $locked_until = null;
+            $last_login = null;
+            $stmt->bind_param('ssssiiississ',
+                $username,
+                $email,
+                $passwordHash,
+                $role,
+                $is_verified,
+                $is_active,
+                $verificationToken,
+                $reset_token,
+                $reset_token_expires,
+                $failed_login_attempts,
+                $locked_until,
+                $last_login
+            );
+            $stmt->execute();
+            $userId = $stmt->insert_id;
+            $stmt->close();
+            $conn->close();
+
             return [
                 'success' => true,
                 'user_id' => $userId,
                 'requires_verification' => $verificationToken !== null,
                 'verification_token' => $verificationToken,
             ];
-            
         } catch (Exception $e) {
             error_log('Registration failed: ' . $e->getMessage());
             return ['success' => false, 'errors' => ['Registration failed']];
@@ -163,8 +166,7 @@ class Auth {
         // }
         
         // Find user
-        // $user = $this->findUser($usernameOrEmail); // CSV support removed
-        $user = null; // Implement SQL user lookup here
+        $user = $this->findUser($usernameOrEmail);
         
         // Log attempt
         // $this->logLoginAttempt($usernameOrEmail, $ip, false); // CSV support removed
@@ -209,7 +211,7 @@ class Auth {
         $_SESSION['username'] = $user['username'];
         $_SESSION['email'] = $user['email'];
             $_SESSION['role'] = $user['role'] ?? 'user';
-        $_SESSION['session_token'] = $sessionToken;
+        $_SESSION['session_token'] = session_id();
         $_SESSION['ip_address'] = $ip;
         
         // Log activity
@@ -413,13 +415,27 @@ class Auth {
     }
     
     private function userExists($username, $email) {
-        // CSV userExists removed; implement SQL userExists here
-        return false;
+        $conn = get_mysql_connection();
+        $stmt = $conn->prepare("SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1");
+        $stmt->bind_param('ss', $username, $email);
+        $stmt->execute();
+        $stmt->store_result();
+        $exists = $stmt->num_rows > 0;
+        $stmt->close();
+        $conn->close();
+        return $exists;
     }
     
     private function findUser($usernameOrEmail) {
-        // CSV findUser removed; implement SQL findUser here
-        return null;
+        $conn = get_mysql_connection();
+        $stmt = $conn->prepare("SELECT * FROM users WHERE username = ? OR email = ? LIMIT 1");
+        $stmt->bind_param('ss', $usernameOrEmail, $usernameOrEmail);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $user = $result->fetch_assoc();
+        $stmt->close();
+        $conn->close();
+        return $user ?: null;
     }
     
     private function isRateLimited($usernameOrEmail, $ip) {
@@ -449,7 +465,8 @@ class Auth {
     }
     
     private function createSession($userId, $rememberMe = false) {
-        $sessionToken = bin2hex(random_bytes(32));
+        // Use PHP session_id as the session_token for DB and $_SESSION
+        $sessionToken = session_id();
         $lifetime = $rememberMe ? 30 * 24 * 3600 : $this->config['security']['session_lifetime'];
         $expiresAt = date('Y-m-d H:i:s', time() + $lifetime);
         $ip = $this->getIpAddress();

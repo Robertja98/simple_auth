@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($result['requires_verification']) {
                 $successMessage = 'Registration successful! Please check your email to verify your account.';
             } else {
-                $successMessage = 'Registration successful! You can now <a href="login.php">login</a>.';
+                $successMessage = 'Registration successful! You can now <a href="/simple_auth/login.php">login</a>.';
             }
         } else {
             $errors = $result['errors'] ?? ['Registration failed'];
@@ -54,6 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (!$success && !isset($_SESSION['csrf_token'])) {
     $auth->generateCsrfToken();
 }
+
+// Always define $csrfToken for use in debug/info sections
+$csrfToken = $_SESSION['csrf_token'] ?? '';
 // Development debug info (only on localhost)
 $showDebug = ($_SERVER['SERVER_NAME'] ?? '') === 'localhost' || ($_SERVER['REMOTE_ADDR'] ?? '') === '127.0.0.1';
 // ...existing code...
@@ -265,7 +268,7 @@ $showDebug = ($_SERVER['SERVER_NAME'] ?? '') === 'localhost' || ($_SERVER['REMOT
         <?php endif; ?>
         
         <div class="auth-footer">
-            Already have an account? <a href="login.php">Login here</a>
+            Already have an account? <a href="/simple_auth/login.php">Login here</a>
         </div>
     </div>
 </body>

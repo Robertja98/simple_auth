@@ -15,6 +15,6 @@ $config = require $configFile;
 $auth = new Auth($config);
 $auth->logout();
 
-// Redirect to auth landing page
-header('Location: index.php');
+// Redirect to logged-out confirmation page
+header('Location: logged_out.php');
 exit;

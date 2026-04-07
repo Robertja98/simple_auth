@@ -1,4 +1,5 @@
 <?php
+// Session initialization is now handled by Auth
 /**
  * User Login Page
  */
@@ -25,28 +26,21 @@ if (isset($_GET['debug_session'])) {
 
 // Check if already logged in
 if ($auth->isAuthenticated()) {
-    // DEBUG: Show redirect logic
-    echo '<div style="background:#eef;border:2px solid #36c;padding:10px;margin:10px 0;">';
-    echo '<strong>DEBUG (login.php): Authenticated, about to redirect</strong><br>';
     $redirect = $_GET['redirect'] ?? $_POST['redirect'] ?? '';
-    echo 'Redirect param: ' . htmlspecialchars($redirect) . '<br>';
-    echo 'Session: <pre>' . print_r($_SESSION, true) . '</pre>';
-    echo '</div>';
-    flush();
     $target = ($redirect && strpos($redirect, '/') === 0) ? $redirect : '/contacts_list.php';
-    // If headers not sent, use header(); else use JS redirect with delay
     if (!headers_sent()) {
         header('Location: ' . $target);
         exit;
     } else {
-        echo '<div style="background:#ffc;padding:10px;margin:10px 0;">Redirecting in 5 seconds...</div>';
-        echo '<script>setTimeout(function(){ window.location.href = ' . json_encode($target) . '; }, 5000);</script>';
-        echo '<noscript><meta http-equiv="refresh" content="5;url=' . htmlspecialchars($target) . '"></noscript>';
+        echo '<script>window.location.href = ' . json_encode($target) . ';</script>';
+        echo '<noscript><meta http-equiv="refresh" content="0;url=' . htmlspecialchars($target) . '"></noscript>';
         exit;
     }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // Log raw POST data before login
+        file_put_contents(__DIR__ . '/login_debug.log', "\n==== BEFORE LOGIN ====".PHP_EOL.print_r($_POST, true).PHP_EOL, FILE_APPEND);
     $usernameOrEmail = trim($_POST['username_or_email'] ?? '');
     $password = $_POST['password'] ?? '';
     $rememberMe = isset($_POST['remember_me']);
@@ -59,6 +53,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $result = $auth->login($usernameOrEmail, $password, $rememberMe);
         if ($result['success']) {
+                        // Log session/user data after successful login
+                        file_put_contents(__DIR__ . '/login_debug.log', "==== AFTER LOGIN (SUCCESS) ====".PHP_EOL.print_r($_SESSION, true).PHP_EOL, FILE_APPEND);
+                        // Log session/user data after failed login
+                        file_put_contents(__DIR__ . '/login_debug.log', "==== AFTER LOGIN (FAIL) ====".PHP_EOL.print_r($_SESSION, true).PHP_EOL, FILE_APPEND);
             // Redirect to the URL in the 'redirect' parameter if present, else to /index.php
             $redirect = $_GET['redirect'] ?? $_POST['redirect'] ?? '';
             if ($redirect && strpos($redirect, '/') === 0) {
